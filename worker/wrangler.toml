@@ -1,0 +1,31 @@
+# ตั้งค่า Cloudflare Worker — QC Audit Line API
+#
+# ⚠️ ห้ามใส่ค่าลับในไฟล์นี้ ไฟล์นี้ถูก commit ขึ้น repo
+#    AUTH_TOKEN ต้องตั้งด้วย `wrangler secret put AUTH_TOKEN` เท่านั้น
+#    ตอนพัฒนาในเครื่องให้ใส่ไว้ที่ .dev.vars ซึ่งถูก gitignore ไว้แล้ว
+
+name = "qc-audit-line-api"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# ── ฐานข้อมูล D1 ──────────────────────────────────────────────────────────
+[[d1_databases]]
+binding = "DB"
+database_name = "qc-audit-line"
+database_id = "797a34a2-cb66-497e-9d97-c38f397d57e4"
+
+# ── ที่เก็บรูปหลักฐาน R2 ──────────────────────────────────────────────────
+[[r2_buckets]]
+binding = "PHOTOS"
+bucket_name = "qc-audit-photos"
+
+# ── ตัวแปรทั่วไป (ไม่ลับ) ─────────────────────────────────────────────────
+# origin ของหน้าเว็บที่อนุญาตให้เรียก API ได้ ใส่หลายค่าได้โดยคั่นด้วยจุลภาค
+# ต้องไม่มี / ต่อท้าย เพราะเบราว์เซอร์ส่ง Origin มาแบบไม่มี /
+[vars]
+ALLOWED_ORIGIN = "https://qc-audit-line.pages.dev,http://localhost:8081"
+
+# กุญแจสาธารณะของการแจ้งเตือนแบบเด้ง (Web Push / VAPID) — เปิดเผยได้ เบราว์เซอร์ต้องใช้ตอนสมัคร
+# กุญแจลับคู่กันตั้งด้วย `wrangler secret put VAPID_PRIVATE_JWK` เท่านั้น (รูปแบบ JWK ของ P-256)
+# ถ้าเปลี่ยนคู่กุญแจ ทุกเครื่องต้องกดเปิดการแจ้งเตือนใหม่
+VAPID_PUBLIC_KEY = "BDoovMyP6y7XdyOw79FN5THjNX4K4y3tVyFKLHpEpabvBQ4gUE_-Uw4ikzVrxWJmk3uqcbOkUt2pBRlh9YvGymY"

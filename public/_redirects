@@ -1,0 +1,5 @@
+# Cloudflare Pages — SPA fallback
+# แอปใช้ client-side routing (React Router) ทุก path ที่ไม่ใช่ไฟล์จริง
+# ต้องถูกเสิร์ฟด้วย index.html แล้วให้ router ฝั่งเบราว์เซอร์จัดการต่อ
+# สถานะ 200 (ไม่ใช่ 301/302) เพื่อให้ URL บนแถบที่อยู่คงเดิม
+/*    /index.html   200

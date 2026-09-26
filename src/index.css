@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Design tokens ─────────────────────────────────────────────
+   TENNECO — น้ำเงิน/ขาว ตามโลโก้ (สีแบรนด์วัดจากไฟล์โลโก้จริง #253F94)
+   หน้าจอพื้นขาว อ่านกลางแสงหน้าไลน์ได้ · สีน้ำเงินแบรนด์ใช้กับแถบหัว ปุ่มหลัก และสิ่งที่ถูกเลือก
+
+   สีสถานะต้องแยกจากสีแบรนด์ให้ออกเสมอ ไม่งั้นผู้ใช้จะอ่านปุ่มกดเป็นสถานะ
+     bad   แดง     QC พบปัญหา (รอ VSM รับทราบ) · ตีกลับ
+     info  ฟ้าอมเขียว VSM รับทราบ
+     warn  ส้ม      กำลังแก้ไข
+     pending ม่วง   แก้ไขเสร็จ รอ QC ตรวจรับ
+     ok    เขียว    ปิดงานแล้ว
+   ทุกสีผ่านคอนทราสต์ 4.5:1 บนพื้นขาว (ป้ายตัวเล็ก) — ทุกป้ายมีไอคอน+ข้อความกำกับด้วย ไม่ใช้สีอย่างเดียว */
+@layer base {
+  :root {
+    --background: 220 33% 97%;
+    --foreground: 225 45% 13%;
+    --card: 0 0% 100%;
+    --card-foreground: 225 45% 13%;
+    --muted: 222 30% 94%;
+    --muted-foreground: 222 14% 38%;
+    --primary: 226 60% 36%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 226 60% 36%;
+    --accent-foreground: 0 0% 100%;
+    --brand: 226 60% 36%;
+    --brand-deep: 226 62% 24%;
+    --brand-light: 218 80% 62%;
+    /* แถบหัวแอป — น้ำเงินแบรนด์ในโหมดสว่าง, กรมท่าเข้มในโหมดมืด */
+    --header: 226 60% 36%;
+    --header-foreground: 0 0% 100%;
+    --ok: 152 62% 30%;
+    --warn: 30 92% 36%;
+    --bad: 356 72% 46%;
+    --info: 192 95% 32%;
+    --pending: 262 52% 50%;
+    --steel: 218 22% 42%;
+    --border: 222 26% 87%;
+    --ring: 226 70% 45%;
+    --shadow: 226 50% 20%;
+  }
+
+  .dark {
+    --background: 226 38% 8%;
+    --foreground: 220 30% 94%;
+    --card: 226 34% 12%;
+    --card-foreground: 220 30% 94%;
+    --muted: 226 26% 17%;
+    --muted-foreground: 222 16% 66%;
+    --primary: 222 80% 74%;
+    --primary-foreground: 226 60% 10%;
+    --accent: 222 76% 68%;
+    --accent-foreground: 226 60% 10%;
+    --header: 226 52% 16%;
+    --header-foreground: 0 0% 100%;
+    --ok: 152 50% 50%;
+    --warn: 34 90% 58%;
+    --bad: 356 78% 64%;
+    --info: 190 70% 52%;
+    --pending: 262 72% 74%;
+    --steel: 218 25% 64%;
+    --border: 226 22% 22%;
+    --ring: 222 76% 68%;
+    --shadow: 226 60% 2%;
+  }
+
+  * { @apply border-border; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-feature-settings: 'cv05' 1;
+    overscroll-behavior-y: none;
+  }
+  /* พื้นเรียบ มีแสงน้ำเงินแบรนด์จาง ๆ ด้านบน — สะอาดแบบองค์กร ไม่แย่งสายตาจากข้อมูล */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: 320px;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(120% 100% at 50% 0%, hsl(var(--brand) / 0.07), transparent 70%);
+  }
+  ::selection { background: hsl(var(--accent)/0.28); }
+  input, textarea, select, button { font: inherit; }
+}
+
+@layer components {
+  /* แถบสีแบรนด์ — เส้นน้ำเงินไล่เฉดใต้แถบหัว หัวกล่องโต้ตอบ และหน้าเข้าสู่ระบบ */
+  .brand-bar {
+    background-image: linear-gradient(90deg, hsl(var(--brand-deep)), hsl(var(--brand)) 45%, hsl(var(--brand-light)));
+  }
+  .panel {
+    @apply relative rounded-lg border bg-card shadow-panel;
+  }
+  .label-micro {
+    @apply font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground;
+  }
+  .num {
+    @apply font-mono tabular-nums tracking-tight;
+  }
+  .press {
+    @apply transition-[transform,box-shadow,background-color,border-color] duration-150 active:scale-[.985];
+  }
+  .focusable {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+  .scroll-x {
+    @apply overflow-x-auto [scrollbar-width:thin];
+    -webkit-overflow-scrolling: touch;
+  }
+  .stagger > * { animation: fade-up 0.42s cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+  .stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .stagger > *:nth-child(2) { animation-delay: 0.06s; }
+  .stagger > *:nth-child(3) { animation-delay: 0.1s; }
+  .stagger > *:nth-child(4) { animation-delay: 0.14s; }
+  .stagger > *:nth-child(5) { animation-delay: 0.18s; }
+  .stagger > *:nth-child(6) { animation-delay: 0.22s; }
+  .stagger > *:nth-child(7) { animation-delay: 0.26s; }
+  .stagger > *:nth-child(8) { animation-delay: 0.3s; }
+}
+
+@layer utilities {
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "qc-audit-line",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 8081
+    },
+    {
+      "name": "qc-local",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--mode",
+        "localtest",
+        "--port",
+        "8082",
+        "--strictPort"
+      ],
+      "port": 8082
+    },
+    {
+      "name": "qc-worker-local",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "wrangler",
+        "dev",
+        "--config",
+        "worker/wrangler.toml",
+        "--local",
+        "--port",
+        "8787",
+        "--persist-to",
+        "worker/.wrangler/state",
+        "--var",
+        "ALLOWED_ORIGIN:http://localhost:8082"
+      ],
+      "port": 8787
+    }
+  ]
+}

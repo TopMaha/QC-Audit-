@@ -1,0 +1,16 @@
+node_modules
+dist
+.DS_Store
+*.local
+
+# wrangler
+.wrangler
+.dev.vars
+
+# ไฟล์สำรองและค่าลับที่สร้างตอน deploy — ห้ามขึ้น repo เด็ดขาด
+_backup
+
+# ทะเบียนพนักงานจริง (ชื่อ-รหัสทั้งโรงงาน + รายชื่อผู้ดูแลระบบ) — อยู่ในเครื่องเท่านั้น
+# repo มี src/lib/roster.data.example.ts เป็นข้อมูลสมมติรูปแบบเดียวกัน
+src/lib/roster.data.ts
+worker/seed.sql
