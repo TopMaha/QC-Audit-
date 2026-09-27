@@ -1,0 +1,92 @@
+# Deploy หน้าเว็บขึ้น GitHub Pages → https://topmaha.github.io/QC-Audit-/
+# GitHub Pages เสิร์ฟไฟล์ดิบจาก repo ไม่ได้ build ให้ จึงต้อง build ที่นี่แล้วส่ง dist/ ไปเสิร์ฟ
+#
+# ต้องตั้งใน repo ก่อนครั้งเดียว:
+#   1. Settings -> Pages -> Build and deployment -> Source = "GitHub Actions"
+#   2. Settings -> Secrets and variables -> Actions -> New repository secret
+#        VITE_AUTH_TOKEN = ค่าเดียวกับใน .env.local ที่ใช้ deploy ขึ้น Cloudflare Pages
+#
+# ใช้ Worker และฐานข้อมูลตัวเดียวกับ https://qc-audit-line.pages.dev
+# Worker จึงต้องมี https://topmaha.github.io อยู่ใน ALLOWED_ORIGIN (worker/wrangler.toml)
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # กดรันเองได้จากแท็บ Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ถ้า push รัวกัน ให้ตัวใหม่ทำงานแทน แต่ไม่ยกเลิกตัวที่กำลัง deploy ค้างอยู่
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # ที่อยู่ Worker ไม่ใช่ความลับ (อยู่ใน README อยู่แล้ว) — ต้องไม่มี / ต่อท้าย
+  VITE_API_URL: https://qc-audit-line-api.wiphawas-sketchup.workers.dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: ติดตั้ง dependency
+        run: npm ci
+
+      - name: ตรวจชนิดข้อมูล
+        run: npm run lint
+
+      # ถ้าไม่มี secret แล้วปล่อยให้ build ผ่าน Worker จะตอบ 401 ทุกคำขอ
+      # หน้าเว็บขึ้นครบแต่เข้าระบบไม่ได้ ซึ่งจับสาเหตุได้ยาก จึงให้ล้มตั้งแต่ตรงนี้พร้อมบอกวิธีแก้
+      - name: ตรวจว่ามี secret ก่อน build
+        env:
+          VITE_AUTH_TOKEN: ${{ secrets.VITE_AUTH_TOKEN }}
+        run: |
+          if [ -z "$VITE_AUTH_TOKEN" ]; then
+            echo "::error::ยังไม่ได้ตั้ง secret: VITE_AUTH_TOKEN"
+            echo "ตั้งที่ Settings -> Secrets and variables -> Actions ของ repo นี้"
+            echo "ค่าต้องตรงกับ .env.local ที่ใช้ deploy ขึ้น Cloudflare Pages"
+            exit 1
+          fi
+
+      # ⚠️ VITE_* ถูกฝังลงไฟล์ JS ตอน build ผู้ใช้ที่เปิดหน้าเว็บจึงอ่านโทเคนได้ (เหมือนบน Cloudflare Pages)
+      #    ตัวตนจริงของผู้ใช้คือเซสชันจาก PIN รายคน (X-Session) ไม่ใช่โทเคนนี้
+      #    ทะเบียนพนักงานไม่ติดไปกับ build นี้ — ตั้ง VITE_API_URL แล้ว main.tsx ตัดทิ้งทั้งก้อน
+      #    และ repo มีแค่ roster.data.example.ts ที่เป็นข้อมูลสมมติ
+      - name: Build (base = /QC-Audit-/ เพราะ Pages เสิร์ฟใต้ subpath ของชื่อ repo)
+        env:
+          VITE_AUTH_TOKEN: ${{ secrets.VITE_AUTH_TOKEN }}
+        run: npm run build:ghpages
+
+      # GitHub Pages ไม่มีไฟล์ _redirects แบบ Cloudflare
+      # ท่ามาตรฐานของ SPA คือ copy index.html เป็น 404.html
+      # เมื่อเปิด deep link เช่น /QC-Audit-/issues/abc Pages จะเสิร์ฟ 404.html
+      # ซึ่งก็คือแอปทั้งตัว แล้ว React Router จะจัดการเส้นทางต่อเอง
+      - name: สร้าง 404.html สำหรับ client-side routing
+        run: |
+          cp dist/index.html dist/404.html
+          rm -f dist/_redirects
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

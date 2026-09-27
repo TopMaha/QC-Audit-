@@ -10,19 +10,28 @@
  * จะได้ข้อมูลเก่าค้างโดยที่แอปไม่รู้ตัว ซึ่งอันตรายกว่าการไม่มีข้อมูล
  */
 
-// ขึ้นเลขเมื่อไฟล์ใน PRECACHE เปลี่ยน (v2 = ธีม TENNECO + ไอคอนใหม่) แคชเก่าจะถูกล้างตอน activate
-const VERSION = 'qc-audit-v2';
+// ขึ้นเลขเมื่อไฟล์ใน PRECACHE เปลี่ยน (v3 = path อิง scope เพื่อเสิร์ฟใต้ /QC-Audit-/ บน GitHub Pages ได้)
+// แคชเก่าจะถูกล้างตอน activate
+const CACHE_PREFIX = 'qc-audit-';
+const VERSION = `${CACHE_PREFIX}v3`;
 const SHELL = `${VERSION}-shell`;
 
+/**
+ * แอปเสิร์ฟได้ทั้งที่ root (Cloudflare Pages) และใต้ชื่อ repo (topmaha.github.io/QC-Audit-/)
+ * จึงห้ามเขียน path แบบขึ้นต้นด้วย / ตรง ๆ — ต้องต่อจาก scope ของ service worker เสมอ
+ * path ของแอปที่ Worker ส่งมา (เช่น /issues/abc) ก็แปลงผ่านฟังก์ชันนี้เหมือนกัน
+ */
+const inScope = (path) => new URL(String(path).replace(/^\/+/, ''), self.registration.scope).href;
+
 // ไฟล์ขั้นต่ำที่ต้องมีเพื่อให้แอปเปิดขึ้นมาได้
-const PRECACHE = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
+const PRECACHE = ['', 'index.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(SHELL)
       // ไฟล์ใดโหลดไม่ได้ก็ไม่ให้ล้มทั้งชุด
-      .then((cache) => Promise.allSettled(PRECACHE.map((url) => cache.add(url))))
+      .then((cache) => Promise.allSettled(PRECACHE.map((path) => cache.add(inScope(path)))))
       .then(() => self.skipWaiting()),
   );
 });
@@ -31,7 +40,13 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => !k.startsWith(VERSION)).map((k) => caches.delete(k))))
+      // ล้างเฉพาะแคชของแอปนี้ — บน github.io ทุกแอปของบัญชีใช้ origin เดียวกัน (แคชร่วมกัน)
+      // ถ้าล้างทุกอันที่ไม่ใช่ของเรา จะไปลบแคชออฟไลน์ของ Gemba Audit ฯลฯ ทิ้งด้วย
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k.startsWith(CACHE_PREFIX) && !k.startsWith(VERSION)).map((k) => caches.delete(k)),
+        ),
+      )
       .then(() => self.clients.claim()),
   );
 });
@@ -54,10 +69,10 @@ self.addEventListener('fetch', (event) => {
       fetch(req)
         .then((res) => {
           const copy = res.clone();
-          caches.open(SHELL).then((c) => c.put('/index.html', copy));
+          caches.open(SHELL).then((c) => c.put(inScope('index.html'), copy));
           return res;
         })
-        .catch(() => caches.match('/index.html').then((r) => r ?? Response.error())),
+        .catch(() => caches.match(inScope('index.html')).then((r) => r ?? Response.error())),
     );
     return;
   }
@@ -93,8 +108,8 @@ self.addEventListener('push', (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title || 'QC Audit Line', {
       body: data.body || 'มีงานใหม่รอคุณ',
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: inScope('icons/icon-192.png'),
+      badge: inScope('icons/icon-192.png'),
       tag: data.tag || undefined,
       renotify: Boolean(data.tag),
       vibrate: [200, 100, 200],
@@ -106,10 +121,11 @@ self.addEventListener('push', (event) => {
 // แตะการแจ้งเตือน → เปิดใบนั้นในแอปที่เปิดอยู่แล้ว หรือเปิดแอปขึ้นมาใหม่
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const url = new URL((event.notification.data && event.notification.data.url) || '/mywork', self.location.origin).href;
+  const url = inScope((event.notification.data && event.notification.data.url) || '/mywork');
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      const win = list.find((c) => c.url.startsWith(self.location.origin));
+      // เทียบกับ scope ไม่ใช่ origin — บน github.io หน้าต่างของแอปอื่นในบัญชีเดียวกันก็ origin เดียวกัน
+      const win = list.find((c) => c.url.startsWith(self.registration.scope));
       if (win) {
         return win.focus().then((c) => (c && 'navigate' in c ? c.navigate(url) : undefined));
       }

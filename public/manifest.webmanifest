@@ -4,29 +4,29 @@
   "description": "QC เดินตรวจไลน์ผลิต บันทึกปัญหาที่พบ ส่งต่อให้ VSM แก้ไขและถ่ายรูปยืนยัน ใช้งานได้แม้สัญญาณไม่ถึง",
   "lang": "th",
   "dir": "ltr",
-  "start_url": "/",
-  "scope": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#253f94",
   "categories": ["business", "productivity", "utilities"],
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
     {
       "name": "บันทึกผลตรวจ",
       "short_name": "ตรวจ",
       "description": "เริ่มบันทึกผลการตรวจไลน์ผลิต",
-      "url": "/inspect"
+      "url": "inspect"
     },
     {
       "name": "งานของฉัน",
       "short_name": "งานของฉัน",
-      "url": "/mywork"
+      "url": "mywork"
     }
   ]
 }

@@ -5,6 +5,8 @@
 > | | |
 > |---|---|
 > | หน้าเว็บ | https://qc-audit-line.pages.dev |
+> | หน้าเว็บ (GitHub Pages) | https://topmaha.github.io/QC-Audit- |
+> | โค้ด | https://github.com/TopMaha/QC-Audit- |
 > | API | https://qc-audit-line-api.wiphawas-sketchup.workers.dev |
 > | ฐานข้อมูล | D1 `qc-audit-line` (APAC) |
 > | ที่เก็บรูป | R2 `qc-audit-photos` |
@@ -242,6 +244,22 @@ npm run deploy       # build แล้วขึ้น Cloudflare Pages
 ```
 
 อย่าลืมเพิ่ม origin ของหน้าเว็บลงใน `ALLOWED_ORIGIN` ใน `worker/wrangler.toml`
+
+### 5. GitHub Pages (ลิงก์สำรอง)
+
+push เข้า `main` แล้ว `.github/workflows/deploy.yml` build และขึ้น https://topmaha.github.io/QC-Audit- ให้เอง
+ใช้ Worker และฐานข้อมูลตัวเดียวกับ Cloudflare Pages ข้อมูลจึงเห็นตรงกันทั้งสองลิงก์
+
+ตั้งใน repo ก่อนครั้งเดียว:
+
+1. **Settings → Pages → Build and deployment → Source** = `GitHub Actions`
+2. **Settings → Secrets and variables → Actions → New repository secret**
+   ชื่อ `VITE_AUTH_TOKEN` ค่าเดียวกับบรรทัด `VITE_AUTH_TOKEN` ใน `.env.local`
+3. แท็บ **Actions → Deploy to GitHub Pages → Run workflow** (หรือ push อะไรก็ได้เข้า `main`)
+
+> แอปเสิร์ฟใต้ `/QC-Audit-/` ไม่ใช่ root — build ด้วย `npm run build:ghpages`
+> path ใน `public/` (manifest · service worker) จึงเขียนแบบอิงตำแหน่งไฟล์ ห้ามขึ้นต้นด้วย `/`
+> `https://topmaha.github.io` อยู่ใน `ALLOWED_ORIGIN` ของ Worker แล้ว
 
 ### รันหลังบ้านในเครื่อง
 

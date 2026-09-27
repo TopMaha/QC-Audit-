@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:ghpages": "vite build --base=/QC-Audit-/",
     "build:file": "vite build --base=./",
     "preview": "vite preview",
     "deploy": "npm run build && wrangler pages deploy dist --project-name=qc-audit-line --branch=main --commit-dirty=true",
