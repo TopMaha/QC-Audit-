@@ -28,6 +28,10 @@ export function SignInForm({ kind, onSuccess }: { kind: 'employee' | 'admin'; on
         return t('auth.noAccess');
       case 'offline':
         return t('auth.offline');
+      case 'misconfigured':
+        return t('auth.misconfigured');
+      case 'server':
+        return t('auth.serverError');
       default:
         return kind === 'admin' ? t('auth.adminWrong') : t('auth.wrongCode');
     }

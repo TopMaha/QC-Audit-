@@ -5,7 +5,7 @@
  * ไฟล์นี้แกะเปลือกนั้นออก คืนเฉพาะ data และโยน ApiError เมื่อผิดพลาด
  */
 
-import { API_URL, AUTH_TOKEN, ONLINE_MODE } from './config';
+import { API_URL, AUTH_TOKEN, AUTH_TOKEN_OK, ONLINE_MODE } from './config';
 import { authToken } from './session';
 
 /** ข้อผิดพลาดจากฝั่ง API — มีสถานะ HTTP ติดมาด้วยเพื่อแยกแยะปลายทาง */
@@ -45,8 +45,17 @@ function checkAuth(status: number, sentSession: boolean) {
   if (status === 401 && sentSession) unauthorized?.();
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+/**
+ * ตรวจการตั้งค่าก่อนยิง — โทเคนผิดรูปทำให้ fetch ล้มแบบเดียวกับเน็ตหลุด
+ * จึงตอบ 401 แทน (ผลเดียวกับที่ Worker ตอบเมื่อโทเคนไม่ตรง) ไม่ให้ถูกนับเป็นออฟไลน์
+ */
+function assertConfigured() {
   if (!ONLINE_MODE) throw new ApiError('ยังไม่ได้ตั้งค่า VITE_API_URL', 0);
+  if (!AUTH_TOKEN_OK) throw new ApiError('VITE_AUTH_TOKEN ตั้งค่าไม่ถูกต้อง', 401);
+}
+
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  assertConfigured();
 
   // ตัดการรอที่ค้างนาน — ในโรงงานสัญญาณมักหายกลางคัน
   const ctl = new AbortController();
@@ -88,7 +97,7 @@ export const apiDelete = <T>(path: string) => request<T>('DELETE', path);
 
 /** อัปโหลดรูปขึ้น R2 — ส่ง blob ดิบ ไม่ใช่ JSON */
 export async function apiUpload(blob: Blob): Promise<string> {
-  if (!ONLINE_MODE) throw new ApiError('ยังไม่ได้ตั้งค่า VITE_API_URL', 0);
+  assertConfigured();
 
   let res: Response;
   try {
@@ -123,7 +132,7 @@ export async function apiFetchPhoto(key: string): Promise<Blob | null> {
 
 /** ที่อยู่สำหรับดาวน์โหลด CSV (เปิดผ่าน fetch เพราะต้องแนบโทเคน) */
 export async function apiDownloadCsv(from: string, to: string): Promise<string> {
-  if (!ONLINE_MODE) throw new ApiError('ยังไม่ได้ตั้งค่า VITE_API_URL', 0);
+  assertConfigured();
   const res = await fetch(`${API_URL}/api/export/csv?from=${from}&to=${to}`, { headers: headers() });
   if (!res.ok) throw new ApiError('ส่งออก CSV ไม่สำเร็จ', res.status);
   return res.text();

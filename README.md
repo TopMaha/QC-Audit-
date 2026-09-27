@@ -241,7 +241,8 @@ push เข้า `main` แล้ว `.github/workflows/deploy.yml` build แ�
 
 1. **Settings → Pages → Build and deployment → Source** = `GitHub Actions`
 2. **Settings → Secrets and variables → Actions → New repository secret**
-   ชื่อ `VITE_AUTH_TOKEN` ค่าเดียวกับบรรทัด `VITE_AUTH_TOKEN` ใน `.env.local`
+   ชื่อ `VITE_AUTH_TOKEN` ค่า = เฉพาะตัวโทเคนที่อยู่หลัง `VITE_AUTH_TOKEN=` ใน `.env.local`
+   (ไม่ใส่ชื่อตัวแปร เครื่องหมาย `=` หรือเครื่องหมายคำพูด — ถ้าผิดรูป workflow จะล้มพร้อมบอกสาเหตุ)
 3. แท็บ **Actions → Deploy to GitHub Pages → Run workflow** (หรือ push อะไรก็ได้เข้า `main`)
 
 > แอปเสิร์ฟใต้ `/QC-Audit-/` ไม่ใช่ root — build ด้วย `npm run build:ghpages`

@@ -1,6 +1,6 @@
 import { mutate, peek, query } from './db';
 import { ONLINE_MODE } from './config';
-import { apiPost } from './net';
+import { ApiError, apiPost } from './net';
 import { enqueue, type QueueKind } from './queue';
 import { disablePush } from './push';
 import { endAdminSession, endSession, startAdminSession, startSession } from './session';
@@ -60,8 +60,17 @@ async function queueWrite(kind: QueueKind, localId: string, payload: unknown) {
  * ผลการเข้าสู่ระบบ — error ตรงกับที่ Worker ตอบ (ดู signIn ใน worker/src/index.js)
  *   invalid      ไม่พบรหัสนี้ (หรือไม่อยู่ในทะเบียนผู้ดูแลระบบ สำหรับ /admin)
  *   offline      ติดต่อเซิร์ฟเวอร์ไม่ได้ — การเข้าสู่ระบบต้องใช้เน็ต
+ *   misconfigured  โทเคนร่วมของแอปไม่ตรงกับ Worker (401) — ผู้ใช้แก้เองไม่ได้ ต้องแจ้งผู้ดูแลระบบ
+ *   server       เซิร์ฟเวอร์ตอบผิดพลาดอย่างอื่น (5xx ฯลฯ)
  */
-export type LoginError = 'not_found' | 'inactive' | 'no_access' | 'invalid' | 'offline';
+export type LoginError =
+  | 'not_found'
+  | 'inactive'
+  | 'no_access'
+  | 'invalid'
+  | 'offline'
+  | 'misconfigured'
+  | 'server';
 
 export interface LoginResult {
   error?: LoginError;
@@ -78,8 +87,10 @@ interface ServerLogin {
 async function serverSignIn(path: string, code: string): Promise<ServerLogin> {
   try {
     return await apiPost<ServerLogin>(path, { code: code.trim() });
-  } catch {
-    return { error: 'offline' };
+  } catch (e) {
+    // เดิมเหมาทุกอย่างเป็น "ไม่มีเน็ต" — โทเคนผิดก็ขึ้นว่าไม่มีเน็ตทั้งที่ต่ออยู่
+    if (!(e instanceof ApiError) || e.isOffline) return { error: 'offline' };
+    return { error: e.status === 401 ? 'misconfigured' : 'server' };
   }
 }
 

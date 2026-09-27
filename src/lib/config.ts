@@ -19,5 +19,15 @@ export const API_URL = raw.replace(/\/+$/, '');
  */
 export const AUTH_TOKEN = (import.meta.env.VITE_AUTH_TOKEN ?? '').trim();
 
+/**
+ * โทเคนต้องเป็นอักขระ ASCII ติดกัน ไม่มีช่องว่าง
+ * เคยตั้ง secret ผิดเป็นข้อความอธิบายภาษาไทย — ใส่ลง header ไม่ได้ fetch ล้มก่อนส่ง
+ * หน้าจอเลยขึ้นว่าไม่มีเน็ตทั้งที่ต่ออยู่ จึงตรวจไว้ตรงนี้ให้บอกสาเหตุจริง
+ */
+export const AUTH_TOKEN_OK = /^[\x21-\x7e]*$/.test(AUTH_TOKEN);
+if (!AUTH_TOKEN_OK) {
+  console.error('VITE_AUTH_TOKEN ไม่ใช่โทเคน (มีช่องว่างหรืออักษรที่ไม่ใช่ ASCII) — ตั้งค่าใหม่แล้ว build ใหม่');
+}
+
 /** ต่อระบบหลังบ้านจริงหรือไม่ */
 export const ONLINE_MODE = API_URL !== '';

@@ -70,6 +70,8 @@ export const en: Dict = {
     adminCode: 'Administrator code',
     adminWrong: 'Wrong administrator code',
     offline: 'Cannot reach the server — signing in needs an internet connection',
+    misconfigured: 'The app’s server connection is misconfigured (token mismatch) — contact the administrator',
+    serverError: 'Server error — try again, and contact the administrator if it persists',
     expired: 'Your session expired or was revoked. Please sign in again',
   },
   home: {
