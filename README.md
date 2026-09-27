@@ -4,8 +4,7 @@
 >
 > | | |
 > |---|---|
-> | หน้าเว็บ | https://qc-audit-line.pages.dev |
-> | หน้าเว็บ (GitHub Pages) | https://topmaha.github.io/QC-Audit- |
+> | หน้าเว็บ | https://topmaha.github.io/QC-Audit- (GitHub Pages — push เข้า `main` แล้วขึ้นเอง) |
 > | โค้ด | https://github.com/TopMaha/QC-Audit- |
 > | API | https://qc-audit-line-api.wiphawas-sketchup.workers.dev |
 > | ฐานข้อมูล | D1 `qc-audit-line` (APAC) |
@@ -230,20 +229,13 @@ npx wrangler deploy
 node -e "const{generateKeyPairSync:g}=require('crypto');const{privateKey:k,publicKey:p}=g('ec',{namedCurve:'prime256v1'});const j=k.export({format:'jwk'}),q=p.export({format:'jwk'});console.log('PRIVATE',JSON.stringify(j));console.log('PUBLIC',Buffer.concat([Buffer.from([4]),Buffer.from(q.x,'base64url'),Buffer.from(q.y,'base64url')]).toString('base64url'))"
 ```
 
-### 4. ชี้หน้าเว็บมาที่ API
-
-```bash
-cp .env.example .env.local
-# ใส่ VITE_API_URL และ VITE_AUTH_TOKEN (ค่าเดียวกับ secret ข้างบน)
-npm run deploy       # build แล้วขึ้น Cloudflare Pages
-```
-
-อย่าลืมเพิ่ม origin ของหน้าเว็บลงใน `ALLOWED_ORIGIN` ใน `worker/wrangler.toml`
-
-### 5. GitHub Pages (ลิงก์สำรอง)
+### 4. หน้าเว็บ — GitHub Pages
 
 push เข้า `main` แล้ว `.github/workflows/deploy.yml` build และขึ้น https://topmaha.github.io/QC-Audit- ให้เอง
-ใช้ Worker และฐานข้อมูลตัวเดียวกับ Cloudflare Pages ข้อมูลจึงเห็นตรงกันทั้งสองลิงก์
+(ใช้เวลาราว 1–2 นาที ดูผลได้ที่แท็บ Actions)
+
+> https://qc-audit-line.pages.dev (Cloudflare Pages) **เลิกใช้แล้ว** — `npm run deploy` คือสคริปต์ขึ้นที่นั่น ไม่ต้องรัน
+> `.env.local` (`VITE_API_URL` + `VITE_AUTH_TOKEN`) ยังใช้กับ `npm run dev` ในเครื่อง
 
 ตั้งใน repo ก่อนครั้งเดียว:
 

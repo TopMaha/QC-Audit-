@@ -4,10 +4,10 @@
 # ต้องตั้งใน repo ก่อนครั้งเดียว:
 #   1. Settings -> Pages -> Build and deployment -> Source = "GitHub Actions"
 #   2. Settings -> Secrets and variables -> Actions -> New repository secret
-#        VITE_AUTH_TOKEN = ค่าเดียวกับใน .env.local ที่ใช้ deploy ขึ้น Cloudflare Pages
+#        VITE_AUTH_TOKEN = ค่าเดียวกับใน .env.local
 #
-# ใช้ Worker และฐานข้อมูลตัวเดียวกับ https://qc-audit-line.pages.dev
-# Worker จึงต้องมี https://topmaha.github.io อยู่ใน ALLOWED_ORIGIN (worker/wrangler.toml)
+# นี่คือหน้าเว็บหลัก (https://qc-audit-line.pages.dev เลิกใช้แล้ว)
+# Worker ต้องมี https://topmaha.github.io อยู่ใน ALLOWED_ORIGIN (worker/wrangler.toml)
 name: Deploy to GitHub Pages
 
 on:
@@ -55,11 +55,11 @@ jobs:
           if [ -z "$VITE_AUTH_TOKEN" ]; then
             echo "::error::ยังไม่ได้ตั้ง secret: VITE_AUTH_TOKEN"
             echo "ตั้งที่ Settings -> Secrets and variables -> Actions ของ repo นี้"
-            echo "ค่าต้องตรงกับ .env.local ที่ใช้ deploy ขึ้น Cloudflare Pages"
+            echo "ค่าต้องตรงกับ VITE_AUTH_TOKEN ใน .env.local (= AUTH_TOKEN ของ Worker)"
             exit 1
           fi
 
-      # ⚠️ VITE_* ถูกฝังลงไฟล์ JS ตอน build ผู้ใช้ที่เปิดหน้าเว็บจึงอ่านโทเคนได้ (เหมือนบน Cloudflare Pages)
+      # ⚠️ VITE_* ถูกฝังลงไฟล์ JS ตอน build ผู้ใช้ที่เปิดหน้าเว็บจึงอ่านโทเคนได้
       #    ตัวตนจริงของผู้ใช้คือเซสชันจาก PIN รายคน (X-Session) ไม่ใช่โทเคนนี้
       #    ทะเบียนพนักงานไม่ติดไปกับ build นี้ — ตั้ง VITE_API_URL แล้ว main.tsx ตัดทิ้งทั้งก้อน
       #    และ repo มีแค่ roster.data.example.ts ที่เป็นข้อมูลสมมติ
