@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import {
-  BellRing, Database, Download, History, KeyRound, Layers, MapPin, Pencil, Plus, RefreshCw, Trash2, Upload, Users, X,
+  BellRing, Database, Download, History, Layers, MapPin, Pencil, Plus, RefreshCw, Trash2, Upload, Users, X,
 } from 'lucide-react';
 import { PageTitle } from '@/components/AppShell';
 import { EmployeePicker } from '@/components/EmployeePicker';
@@ -13,9 +13,6 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/field';
 import { Avatar, SkeletonList, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/misc';
 import { useToast } from '@/components/ui/toast';
-import { resetPin } from '@/lib/api';
-import { ONLINE_MODE } from '@/lib/config';
-import { syncNow } from '@/lib/sync';
 import { FilterChip } from '@/pages/Issues';
 import {
   useChangeHistory,
@@ -347,24 +344,6 @@ function UserDialog({
     setForm((f) => ({ ...f, avatar_url: key }));
   };
 
-  const toast = useToast();
-  const [resetting, setResetting] = useState(false);
-  const doResetPin = async () => {
-    if (!employee || !confirm(t('admin.resetPinConfirm', { name: personLabel(employee, lang) }))) return;
-    setResetting(true);
-    try {
-      await resetPin(employee.id);
-      toast(t('admin.pinReset'));
-      // สถานะ PIN มาจากเซิร์ฟเวอร์ — ดึงทะเบียนใหม่ให้ป้ายเปลี่ยนทันที
-      await syncNow();
-      onOpenChange(false);
-    } catch (e) {
-      toast(t('admin.pinResetFailed', { msg: (e as Error).message }));
-    } finally {
-      setResetting(false);
-    }
-  };
-
   const submit = async () => {
     // บทบาท VSM ที่ไม่ผูกสาย จะไม่มีงานเข้ากล่องเลย — กันไว้ตั้งแต่ตอนบันทึก
     if (form.role === 'vsm' && !form.vsm_line) return;
@@ -495,24 +474,6 @@ function UserDialog({
               />
             </label>
           </div>
-
-          {/* PIN — เห็นแค่ว่าตั้งแล้วหรือยัง ตัว PIN ไม่เคยออกจากเซิร์ฟเวอร์
-              ล้าง PIN เมื่อเจ้าตัวลืม หรือสงสัยว่ามีคนตั้ง PIN แทนไปก่อน */}
-          {employee && ONLINE_MODE ? (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border p-3">
-              <KeyRound className="h-4 w-4 shrink-0 text-accent" />
-              <span className="text-[13px] font-medium">{t('admin.pinStatus')}</span>
-              <Badge tone={employee.has_pin ? 'ok' : 'neutral'} className="normal-case tracking-normal">
-                {employee.has_pin ? t('admin.pinSet') : t('admin.pinNotSet')}
-              </Badge>
-              {employee.has_pin ? (
-                <Button variant="outline" size="sm" className="ml-auto" disabled={resetting} onClick={doResetPin}>
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  {t('admin.resetPin')}
-                </Button>
-              ) : null}
-            </div>
-          ) : null}
         </div>
       </DialogContent>
     </Dialog>

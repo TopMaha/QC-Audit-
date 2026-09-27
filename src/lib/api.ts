@@ -58,67 +58,47 @@ async function queueWrite(kind: QueueKind, localId: string, payload: unknown) {
 
 /**
  * ผลการเข้าสู่ระบบ — error ตรงกับที่ Worker ตอบ (ดู signIn ใน worker/src/index.js)
- *   pin_setup    ยังไม่เคยตั้ง PIN → หน้าจอขอ PIN ใหม่แล้วเรียกซ้ำพร้อม newPin
- *   pin_required มี PIN แล้วแต่ไม่ได้กรอกมา
- *   weak_pin     PIN ใหม่ง่ายเกินไป (message บอกเหตุผล)
- *   invalid      รหัสหรือ PIN ไม่ถูกต้อง (ไม่บอกว่าผิดตรงไหน)
- *   locked       กรอกผิดหลายครั้ง ถูกล็อกชั่วคราวถึง lockedUntil
+ *   invalid      ไม่พบรหัสนี้ (หรือไม่อยู่ในทะเบียนผู้ดูแลระบบ สำหรับ /admin)
  *   offline      ติดต่อเซิร์ฟเวอร์ไม่ได้ — การเข้าสู่ระบบต้องใช้เน็ต
  */
-export type LoginError =
-  | 'not_found' | 'inactive' | 'no_access'
-  | 'pin_setup' | 'pin_required' | 'weak_pin' | 'invalid' | 'locked' | 'offline';
+export type LoginError = 'not_found' | 'inactive' | 'no_access' | 'invalid' | 'offline';
 
 export interface LoginResult {
   error?: LoginError;
-  message?: string;
-  attemptsLeft?: number;
-  lockedUntil?: string;
 }
 
 interface ServerLogin {
   error?: LoginError;
-  message?: string;
-  attempts_left?: number;
-  locked_until?: string;
   token?: string;
   employee?: Employee;
   superuser?: boolean;
   admin?: { id: string; admin_code: string; full_name: string };
 }
 
-async function serverSignIn(path: string, code: string, pin: string, newPin?: string): Promise<ServerLogin> {
+async function serverSignIn(path: string, code: string): Promise<ServerLogin> {
   try {
-    return await apiPost<ServerLogin>(path, { code: code.trim(), pin, ...(newPin ? { new_pin: newPin } : {}) });
+    return await apiPost<ServerLogin>(path, { code: code.trim() });
   } catch {
     return { error: 'offline' };
   }
 }
 
-const loginResult = (d: ServerLogin): LoginResult => ({
-  error: d.error,
-  message: d.message,
-  attemptsLeft: d.attempts_left,
-  lockedUntil: d.locked_until,
-});
-
 /**
- * เข้าสู่ระบบด้วยรหัสพนักงาน + PIN — ต้องใช้เน็ต เพราะ Worker เป็นคนตรวจ PIN
- * (ถ้าตรวจในเครื่อง ต้องเก็บค่าแฮชของ PIN ไว้ในเครื่อง ซึ่ง PIN แค่ล้านแบบไล่เดาได้ในไม่กี่วินาที)
+ * เข้าสู่ระบบด้วยรหัสพนักงาน — ต้องใช้เน็ต เพราะ Worker เป็นคนออกโทเคนเซสชัน
  * เข้าได้แล้วเซสชันอยู่ยาว ใช้งานออฟไลน์ต่อได้ตามปกติ
  */
-export async function loginEmployee(code: string, pin: string, newPin?: string): Promise<LoginResult> {
+export async function loginEmployee(code: string): Promise<LoginResult> {
   if (!ONLINE_MODE) return localLogin(code);
-  const d = await serverSignIn('/api/auth/login', code, pin, newPin);
-  if (!d.token || !d.employee) return loginResult(d);
+  const d = await serverSignIn('/api/auth/login', code);
+  if (!d.token || !d.employee) return { error: d.error ?? 'invalid' };
   startSession(d.employee, d.token, Boolean(d.superuser));
   // สำเนาในเครื่องว่างจนกว่าจะเข้าระบบ (ทะเบียนไม่ได้ฝังในไฟล์เว็บแล้ว) — ดึงก่อนพาเข้าหน้างาน
   await syncNow();
   return {};
 }
 
-/** โหมดผู้ดูแลระบบ (/admin) — PIN เดียวกับตอนเข้าเป็นพนักงาน */
-export async function loginAdmin(code: string, pin: string, newPin?: string): Promise<LoginResult> {
+/** โหมดผู้ดูแลระบบ (/admin) — รหัสต้องอยู่ในทะเบียนผู้ดูแลระบบ */
+export async function loginAdmin(code: string): Promise<LoginResult> {
   if (!ONLINE_MODE) {
     const wanted = normalizeCode(code);
     const su = peek((db) => db.superusers.find((s) => normalizeCode(s.admin_code) === wanted));
@@ -126,14 +106,14 @@ export async function loginAdmin(code: string, pin: string, newPin?: string): Pr
     startAdminSession(su, null);
     return {};
   }
-  const d = await serverSignIn('/api/auth/admin', code, pin, newPin);
-  if (!d.token || !d.admin) return loginResult(d);
+  const d = await serverSignIn('/api/auth/admin', code);
+  if (!d.token || !d.admin) return { error: d.error ?? 'invalid' };
   startAdminSession(d.admin, d.token);
   await syncNow();
   return {};
 }
 
-/** โหมดในเครื่อง (ไม่มีเซิร์ฟเวอร์ ใช้ตอนพัฒนา) — ตรวจกับทะเบียนในเครื่อง ไม่มี PIN */
+/** โหมดในเครื่อง (ไม่มีเซิร์ฟเวอร์ ใช้ตอนพัฒนา) — ตรวจกับทะเบียนในเครื่อง */
 async function localLogin(code: string): Promise<LoginResult> {
   const wanted = normalizeCode(code);
   const res = await mutate((db) => {
@@ -172,11 +152,6 @@ export async function signOut(): Promise<void> {
   }
   endSession();
   endAdminSession();
-}
-
-/** ผู้ดูแลระบบล้าง PIN ของพนักงาน — ทำทันทีที่เซิร์ฟเวอร์ ไม่เข้าคิว (ต้องรู้ผลตอนนั้นเลย) */
-export async function resetPin(employeeId: string): Promise<void> {
-  await apiPost(`/api/employees/${employeeId}/reset-pin`);
 }
 
 export async function getLoginHistory(): Promise<LoginHistory[]> {

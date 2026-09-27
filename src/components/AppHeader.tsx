@@ -8,7 +8,7 @@ import { SyncBadge } from '@/components/SyncBadge';
 import { useSession } from '@/hooks/useData';
 import { personLabel, useI18n } from '@/lib/i18n';
 import { signOut as signOutApi } from '@/lib/api';
-import { applyTheme, getMode, type Mode } from '@/lib/theme';
+import { getMode, setMode, type Mode } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 const LOGO = `${import.meta.env.BASE_URL}brand/tenneco-logo.png`;
@@ -40,7 +40,7 @@ export function AppHeader() {
   const toggleMode = () => {
     const next: Mode = mode === 'dark' ? 'light' : 'dark';
     setModeState(next);
-    applyTheme(next);
+    setMode(next);
   };
 
   const signOut = async () => {

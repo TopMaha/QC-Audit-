@@ -41,8 +41,6 @@ export interface Employee {
   dashboard_enabled: boolean;
   /** ได้รับสิทธิ์เข้าใช้แอปหรือไม่ — ผู้ดูแลระบบกำหนดเป็นรายคน */
   can_login: boolean;
-  /** ตั้ง PIN แล้วหรือยัง — มาจากเซิร์ฟเวอร์เท่านั้น (ตัว PIN ไม่เคยออกจาก Worker) */
-  has_pin?: boolean;
   created_at: string;
 }
 

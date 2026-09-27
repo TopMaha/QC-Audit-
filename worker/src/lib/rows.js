@@ -37,8 +37,6 @@ export function mapEmployee(r) {
     is_active: toBool(r.is_active),
     dashboard_enabled: toBool(r.dashboard_enabled),
     can_login: toBool(r.can_login),
-    // ตั้ง PIN แล้วหรือยัง — มีเฉพาะในรายการทะเบียน (ค่าแฮชของ PIN ไม่เคยออกจาก Worker)
-    ...(r.has_pin === undefined ? {} : { has_pin: toBool(r.has_pin) }),
     created_at: r.created_at,
   };
 }

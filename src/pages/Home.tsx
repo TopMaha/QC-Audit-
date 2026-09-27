@@ -103,7 +103,7 @@ export default function Home() {
               {settings?.plant_name} · {formatDate(todayISO(), lang, { full: true })}
             </p>
 
-            {/* เซสชันเดิมถูกตัด (หมดอายุ · ถูกล้าง PIN · ถูกถอนสิทธิ์) — บอกเหตุผลก่อนให้เข้าใหม่ */}
+            {/* เซสชันเดิมถูกตัด (หมดอายุ · ถูกถอนสิทธิ์) — บอกเหตุผลก่อนให้เข้าใหม่ */}
             {expired ? (
               <p role="status" className="mb-4 rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-[12px]">
                 {t('auth.expired')}
@@ -112,10 +112,9 @@ export default function Home() {
 
             <SignInForm kind="employee" onSuccess={done} />
 
-            <p className="mt-3 text-center text-[11px] text-muted-foreground">{t('auth.forgotPin')}</p>
             <Link
               to="/admin"
-              className="focusable mt-2 flex items-center justify-center gap-1.5 rounded-md py-2 text-[12px] text-muted-foreground hover:text-foreground"
+              className="focusable mt-3 flex items-center justify-center gap-1.5 rounded-md py-2 text-[12px] text-muted-foreground hover:text-foreground"
             >
               <Shield className="h-3.5 w-3.5" />
               {t('home.adminCta')}

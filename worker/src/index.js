@@ -29,9 +29,7 @@ import {
 import { diffStmts, entryStmt } from './lib/audit.js';
 import { buildCsv, buildSummary } from './lib/dashboard.js';
 import { lineRecipients, notify, pushConfigured } from './lib/push.js';
-import {
-  LOCK_MINUTES, MAX_FAILS, SESSION_DAYS, addMinutes, hashPin, randomToken, sameHex, sha256, weakPinReason,
-} from './lib/auth.js';
+import { SESSION_DAYS, randomToken, sha256 } from './lib/auth.js';
 
 const app = new Hono();
 
@@ -144,7 +142,7 @@ app.use('*', async (c, next) => {
 /* ══════════════════════════════════════════════════════════════════════════
    Auth — สองชั้น
    X-Auth-Token  โทเคนร่วมของแอป — อยู่ในไฟล์เว็บ ใครเปิดเว็บก็อ่านได้ จึงกันได้แค่คนที่ยิงมาจากที่อื่น
-   X-Session     โทเคนเซสชันรายคน ได้มาหลังกรอก PIN ถูก — ตัวนี้คือการยืนยันตัวตนจริง
+   X-Session     โทเคนเซสชันรายคน ได้มาหลังเข้าสู่ระบบด้วยรหัสพนักงาน — Worker รู้ว่าใครทำอะไรจากตัวนี้
 
    ทุกเส้นทางยกเว้น health และการเข้าสู่ระบบต้องมีเซสชัน ไม่มี = 401
    (เดิมเชื่อรหัสพนักงานที่เครื่องบอกมาเอง และการไม่ส่งรหัสเลยถือเป็นผู้ดูแลระบบ
@@ -282,24 +280,20 @@ app.get('/api/health', async (c) => {
 });
 
 /* ══════════════════════════════════════════════════════════════════════════
-   เข้าสู่ระบบ — รหัสพนักงาน + PIN 6 หลัก
+   เข้าสู่ระบบ — รหัสพนักงานอย่างเดียว (ไม่มี PIN)
    ══════════════════════════════════════════════════════════════════════════ */
 
 /**
- * เข้าสู่ระบบ (พนักงาน หรือผู้ดูแลระบบผ่าน /admin — ใช้ PIN เดียวกันของคนคนนั้น)
+ * เข้าสู่ระบบ (พนักงาน หรือผู้ดูแลระบบผ่าน /admin)
  *
- *   ยังไม่เคยตั้ง PIN → ตอบ pin_setup ให้หน้าจอขอ PIN ใหม่ แล้วส่งกลับมาใน new_pin
- *   กรอกผิดติดกัน MAX_FAILS ครั้ง → ล็อก LOCK_MINUTES นาที
+ * รหัสที่มีในระบบ + บัญชียังใช้งานอยู่ + เปิดสิทธิ์เข้าแอปแล้ว = ได้โทเคนเซสชัน
+ * /admin ต้องอยู่ในทะเบียนผู้ดูแลระบบด้วย
  *
  * เข้าไม่ได้ตอบ 200 พร้อม { error } (ไม่ใช่ 4xx) ให้หน้าจอเลือกข้อความเองได้
- * รหัสที่ไม่มีในระบบกับ PIN ผิดตอบ "invalid" เหมือนกัน ไม่บอกว่าผิดตรงไหน
  */
 async function signIn(c, kind) {
   const b = await readJson(c);
   const code = str(b, 'code', { max: 40 });
-  const pin = typeof b.pin === 'string' ? b.pin : '';
-  const newPin = typeof b.new_pin === 'string' ? b.new_pin : '';
-  if (!c.env.PIN_PEPPER) return fail(c, 'เซิร์ฟเวอร์ยังไม่ได้ตั้งค่า PIN_PEPPER — รัน wrangler secret put PIN_PEPPER ก่อน', 500);
 
   const DB = c.env.DB;
   const e = await DB.prepare(`SELECT * FROM employees WHERE ${normalizedSql('emp_code')} = ?`)
@@ -315,59 +309,16 @@ async function signIn(c, kind) {
     )
       .bind(uid('log'), e?.id ?? '-', e?.full_name ?? code, kind === 'admin' ? 'admin' : 'employee', nowStamp(), result)
       .run();
-  const deny = async (error, extra = {}) => {
+  const deny = async (error) => {
     await log('failed');
-    return ok(c, { error, ...extra });
+    return ok(c, { error });
   };
 
   if (!e || (kind === 'admin' && !su)) return deny('invalid');
   if (e.is_active !== 1) return deny('inactive');
   if (e.can_login !== 1) return deny('no_access');
 
-  const rec = await DB.prepare(`SELECT * FROM employee_pins WHERE employee_id = ?`).bind(e.id).first();
   const now = nowStamp();
-
-  if (!rec) {
-    // เข้าครั้งแรก — ยังไม่ใช่ความพยายามที่ผิด จึงไม่ลงบันทึกว่าล้มเหลว
-    if (!newPin) return ok(c, { error: 'pin_setup' });
-    const reason = weakPinReason(newPin);
-    if (reason) return ok(c, { error: 'weak_pin', message: reason });
-    const salt = randomToken(16);
-    try {
-      await DB.batch([
-        DB.prepare(
-          `INSERT INTO employee_pins (employee_id, pin_hash, pin_salt, failed_count, locked_until, updated_at)
-           VALUES (?, ?, ?, 0, NULL, ?)`,
-        ).bind(e.id, await hashPin(c.env, e.id, salt, newPin), salt, now),
-        entryStmt(DB, {
-          table: 'employees', recordId: e.id, action: 'update', field: 'pin',
-          oldV: null, newV: 'ตั้ง PIN', actor: e.full_name,
-        }),
-      ]);
-    } catch (err) {
-      // มีอีกเครื่องตั้ง PIN ให้บัญชีนี้ไปพร้อมกัน — ให้ลองเข้าด้วย PIN ตามปกติ
-      if (isDuplicate(err)) return deny('invalid');
-      throw err;
-    }
-  } else {
-    if (rec.locked_until && rec.locked_until > now) return deny('locked', { locked_until: rec.locked_until });
-    if (!pin) return ok(c, { error: 'pin_required' });
-    const good = sameHex(await hashPin(c.env, e.id, rec.pin_salt, pin), rec.pin_hash);
-    if (!good) {
-      const fails = rec.failed_count + 1;
-      const lock = fails >= MAX_FAILS ? addMinutes(now, LOCK_MINUTES) : null;
-      await DB.prepare(`UPDATE employee_pins SET failed_count = ?, locked_until = ? WHERE employee_id = ?`)
-        .bind(lock ? 0 : fails, lock, e.id)
-        .run();
-      return lock ? deny('locked', { locked_until: lock }) : deny('invalid', { attempts_left: MAX_FAILS - fails });
-    }
-    if (rec.failed_count || rec.locked_until) {
-      await DB.prepare(`UPDATE employee_pins SET failed_count = 0, locked_until = NULL WHERE employee_id = ?`)
-        .bind(e.id)
-        .run();
-    }
-  }
-
   const token = randomToken();
   await DB.prepare(
     `INSERT INTO sessions (token_hash, employee_id, kind, created_at, last_seen_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -394,29 +345,6 @@ app.post('/api/auth/logout', async (c) => {
   return ok(c, { signed_out: true });
 });
 
-/**
- * ผู้ดูแลระบบล้าง PIN (ลืม PIN หรือสงสัยว่ามีคนตั้งแทน)
- * เซสชันทุกเครื่องของคนนั้นถูกตัดทันที แล้วเจ้าตัวตั้ง PIN ใหม่ได้ตอนเข้าครั้งถัดไป
- */
-app.post('/api/employees/:id/reset-pin', async (c) => {
-  if (!(await isSuperuserCall(c))) return fail(c, 'ล้าง PIN ได้เฉพาะผู้ดูแลระบบ', 403);
-  const id = c.req.param('id');
-  const e = await c.env.DB.prepare(`SELECT id FROM employees WHERE id = ?`).bind(id).first();
-  if (!e) return fail(c, 'ไม่พบพนักงานรายนี้', 404);
-
-  await c.env.DB.batch([
-    c.env.DB.prepare(`DELETE FROM employee_pins WHERE employee_id = ?`).bind(id),
-    c.env.DB.prepare(`DELETE FROM sessions WHERE employee_id = ?`).bind(id),
-    // ถ้าสงสัยว่ามีคนตั้ง PIN แทน เครื่องของคนนั้นต้องเลิกได้รับงานเด้งของเจ้าตัวด้วย
-    c.env.DB.prepare(`DELETE FROM push_subscriptions WHERE employee_id = ?`).bind(id),
-    entryStmt(c.env.DB, {
-      table: 'employees', recordId: id, action: 'update', field: 'pin',
-      oldV: null, newV: 'ล้าง PIN', actor: actorName(c),
-    }),
-  ]);
-  return ok(c, { reset: true });
-});
-
 app.get('/api/login-history', async (c) => {
   const limit = qInt(c, 'limit', 100, { min: 1, max: 500 });
   const { results } = await c.env.DB.prepare(`SELECT * FROM login_history ORDER BY at DESC LIMIT ?`)
@@ -430,10 +358,7 @@ app.get('/api/login-history', async (c) => {
    ══════════════════════════════════════════════════════════════════════════ */
 
 app.get('/api/employees', async (c) => {
-  const { results } = await c.env.DB.prepare(
-    `SELECT e.*, EXISTS (SELECT 1 FROM employee_pins p WHERE p.employee_id = e.id) AS has_pin
-       FROM employees e ORDER BY e.emp_code`,
-  ).all();
+  const { results } = await c.env.DB.prepare(`SELECT * FROM employees ORDER BY emp_code`).all();
   return ok(c, results.map(mapEmployee));
 });
 
